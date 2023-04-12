@@ -66,17 +66,18 @@ class BotConnect():
         logger.info(f"Get FILE {self.file_name} from USER {self.user_name} mit ID {self.user_id}")
         self.bot.send_message(self.user_id, "Файл успешно обработан, данные внесены в таблицы")
 
-    def error_message(self):
+    def error_message(self, mes: str):
         logger.info(f"Get FILE {self.file_name} from USER {self.user_name} "
-                    f"mit ID {self.user_id} ERROR name_sheet not found")
+                    f"mit ID {self.user_id} ERROR {mes}")
 
-        self.bot.send_message(self.user_id, "Таксиста с таким именем не внесён в базу, обратитесь к администратору")
+        self.bot.send_message(self.user_id, f"Возникла внутренняя ошибка {mes}, обратитесь к администратору")
 
 
 class ConverterData():
     def __init__(self):
         self.ticket_list = []
         self.ticket_error_list = []
+        self.amount = 0
 
     def import_session(self, file: str):
         for line in file.split("\n"):
@@ -103,12 +104,13 @@ class ConverterData():
                 self.ticket_error_list.append(line)
                 continue
 
-    def upload_session(self, profile):
+    def upload_session(self, sheet):
         list_session = []
+
         for ticket in self.ticket_list:
             try:
                 list_session.append(SessionTaxi(
-                    profile=profile,
+                    sheet=sheet,
                     date_session=ticket[0],
                     phone=ticket[1],
                     time=ticket[2],
@@ -119,21 +121,68 @@ class ConverterData():
             except Exception:
                 self.ticket_error_list.append(" ".join(ticket))
                 continue
+            self.amount = len(list_session)
         SessionTaxi.objects.bulk_create(list_session)
+
+    def list_data_session(self) -> list:
+        all_session = SessionTaxi.objects.count()
+        sessions = SessionTaxi.objects.all()[(all_session - self.amount):]
+        list_sessions = []
+
+        for session in sessions:
+            if session.time:
+                correct_time = session.time.strftime("%H:%M.%f")
+            else:
+                correct_time = session.time
+            list_sessions.append([
+                session.date_session.strftime("%Y-%m-%d %H:%M:%S.%f"),
+                session.phone,
+                correct_time,
+                session.starting_point,
+                session.end_point,
+                session.price
+            ])
+        return list_sessions
 
 
 class ConnectGoogleSheet():
     def __init__(self):
-        self.sh = self.get_sheets()
+        # self.client = self.get_client()
+        self.sh = self.get_sheet()
+
+    # @classmethod
+    # def get_client(cls):
+    #     scope = [settings.GOOGLE_API_SHEETS,
+    #              settings.GOOGLE_API_AUTH]
+    #     file = path.join("data_filtering", settings.FILE_API_GOOGLE_KEY)
+    #     credentials = ServiceAccountCredentials.from_json_keyfile_name(file, scope)
+    #     client = gspread.authorize(credentials)
+    #     return client
 
     @classmethod
-    def get_sheets(cls):
+    def get_sheet(cls):
         scope = [settings.GOOGLE_API_SHEETS,
                  settings.GOOGLE_API_AUTH]
         file = path.join("data_filtering", settings.FILE_API_GOOGLE_KEY)
         credentials = ServiceAccountCredentials.from_json_keyfile_name(file, scope)
         client = gspread.authorize(credentials)
         return client.open_by_key(settings.GOOGLE_SHEETS_ID)
+
+    def initial_sheet_google(self, name_sheet):
+        self.sh.add_worksheet(title=name_sheet, rows=10000, cols=20)
+        name_sheet_error = name_sheet + settings.ERROR_NAME_SHEET
+        self.sh.add_worksheet(title=name_sheet_error, rows=10000, cols=20)
+
+    def upload_data_to_sheet(self, list_sessions: list, name: str) -> bool:
+        worksheet = self.sh.worksheet(str(name))
+        values_list = worksheet.col_values(1)
+
+        position = f"A{len(values_list) + 1}:F{len(values_list) + len(list_sessions)}"
+        try:
+            worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
+        except Exception:
+            return False
+        return True
 
 
 

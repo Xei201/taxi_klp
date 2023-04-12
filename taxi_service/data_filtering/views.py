@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from data_filtering.core import ConverterData, BotConnect, ConnectGoogleSheet
-from data_filtering.models import SessionTaxi, Profile
+from data_filtering.models import SessionTaxi, Profile, Sheet
 from taxi_service import settings
 
 token = settings.BOT_TOKEN[1:-1]
@@ -41,20 +41,24 @@ def start(message: types.Message):
 
 
 @bot.message_handler(commands=['clear'])
-def start_message(message: types.Message):
+def clear_bd(message: types.Message):
     session = SessionTaxi.objects.all()
     session.delete()
     bot.send_message(message.chat.id, "Список сессий успешно очищен")
 
 
+@bot.message_handler(commands=['add'])
+def add(message: types.Message):
+    bot.send_message(message.chat.id, "Для добавления нового листа таблицы, введите имя листа: ")
+    bot.register_next_step_handler(message, add_sheet)
+
+
+# Доделать опцию создания новой таблицы
 @bot.message_handler(commands=['create'])
 def create_table(message: types.Message):
-    # scope = [settings.GOOGLE_API_SHEETS,
-    #          settings.GOOGLE_API_AUTH]
-    # file = path.join("data_filtering", settings.FILE_API_GOOGLE_KEY)
-    # credentials = ServiceAccountCredentials.from_json_keyfile_name(file, scope)
-    # client = gspread.authorize(credentials)
-    # sh = client.create('Taxi_klp')
+    """Используется при создании новой таблицы"""
+    # sheets = ConnectGoogleSheet()
+    # sh = sheets.client.create('Taxi_klp')
     # sh.share('blackwood20192@gmail.com', perm_type='user', role='writer')
     bot.send_message(message.chat.id, "Таблица создана")
 
@@ -63,7 +67,7 @@ def create_table(message: types.Message):
 def read_table(message: types.Message):
     sheets = ConnectGoogleSheet()
     # worksheet = sheets.sh.add_worksheet(title="A worksheet24", rows=10000, cols=20)
-    worksheet = sheets.sh.worksheet("A worksheet24")
+    worksheet = sheets.sh.worksheet("Такси_Счастье_1")
     values_list = worksheet.col_values(1)
     sessions = SessionTaxi.objects.all()
     list_sessions = []
@@ -92,20 +96,46 @@ def get_document(message: types.Message):
     connect_bot = BotConnect(bot, message)
 
     name_sheet = connect_bot.file_name[25: -4]
-    if Profile.objects.filter(name_sheet=name_sheet).exists():
-        profile = Profile.objects.get(name_sheet=name_sheet)
+
+    if Sheet.objects.filter(name=name_sheet).exists():
+        sheet = Sheet.objects.get(name=name_sheet)
+
     else:
-        connect_bot.error_message()
+        connect_bot.error_message("name_sheet not found")
         return
 
     file = connect_bot.get_telegram_file()
-    if file:
-        upload_file = ConverterData()
-        upload_file.import_session(file)
-        name_sheet = connect_bot.file_name[25: -4]
-        upload_file.upload_session(profile)
-        connect_bot.success_message()
+    if not file:
+        connect_bot.error_message("file have zero lines")
+        return
 
+    upload_file = ConverterData()
+    upload_file.import_session(file)
+    upload_file.upload_session(sheet)
+    list_sessions = upload_file.list_data_session()
+    name_sheet = SessionTaxi.objects.last().sheet
+    sheet = ConnectGoogleSheet()
+
+    if not sheet.upload_data_to_sheet(list_sessions, name_sheet):
+        connect_bot.error_message("not find connect Google API")
+        return
+    connect_bot.success_message()
+
+
+def add_sheet(message: types.Message):
+    name_sheet = message.text
+    if name_sheet == "Break":
+        bot.send_message(message.chat.id, "Прерываю выполнение команды")
+        return
+
+    if Sheet.objects.filter(name=name_sheet).exists():
+        bot.send_message(message.chat.id, "Лист с таким именем уже есть")
+        return add(message)
+
+    Sheet.objects.create(name=name_sheet)
+    sheets = ConnectGoogleSheet()
+    sheets.initial_sheet_google(name_sheet)
+    bot.send_message(message.chat.id, "Добавлен новый лист таблицы")
 
 
 
