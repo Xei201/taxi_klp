@@ -17,6 +17,13 @@ class Profile(models.Model):
         verbose_name="Nickname telegram",
         max_length=255,
     )
+    name_sheet = models.CharField(
+        verbose_name="Name file",
+        max_length=255,
+        blank=True,
+        default=None,
+        null=True,
+    )
     date_create = models.DateTimeField(
         auto_now_add=True,
     )

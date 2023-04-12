@@ -1,0 +1,9 @@
+/venv/
+/.idea/
+/taxi_service/deploy/
+/taxi_service/taxi_service/settings.ini
+/taxi_service/data_filtering/migrations/
+/taxi_service/db.sqlite3
+/taxi_service/logs/
+/inpute_data.txt
+/taxi_service/data_filtering/mytestproject-383414-83acd42c7dc5.json

@@ -13,6 +13,15 @@ BOT_TOKEN = config.get("taxi_service", "bot_token")
 
 DEBUG = config["taxi_service"].get("debug", False)
 
+CONTROL_SIZE_FILE = 10
+
+GOOGLE_API_SHEETS = "https://www.googleapis.com/auth/spreadsheets"
+
+GOOGLE_API_AUTH = "https://www.googleapis.com/auth/drive"
+
+FILE_API_GOOGLE_KEY = "mytestproject-383414-83acd42c7dc5.json"
+
+GOOGLE_SHEETS_ID = "1bA5h7C0s4Ev3EMVeM0687FjFcZBU-ekGTorqWEMPAAU"
 
 ALLOWED_HOSTS = ["*"]
 
@@ -138,7 +147,7 @@ LOGGING = {
         }
     },
     'loggers': {
-        'trader': {
+        'data_filtering': {
             'level': 'DEBUG',
             'handlers': ['console', 'info-file']
         }

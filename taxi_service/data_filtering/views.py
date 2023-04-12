@@ -1,12 +1,16 @@
+import json
 import logging
-from pprint import pprint
+from os import path
+
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 from telebot import TeleBot, types
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from data_filtering.core import ConverterData
-from data_filtering.models import SessionTaxi
+from data_filtering.core import ConverterData, BotConnect, ConnectGoogleSheet
+from data_filtering.models import SessionTaxi, Profile
 from taxi_service import settings
 
 token = settings.BOT_TOKEN[1:-1]
@@ -23,47 +27,87 @@ class UpdateBot(APIView):
 
         return Response({'code': 200})
 
-#
-# @bot.message_handler(content_types=["text"])
-# def get_okn(message):
-#     bot.send_message(message.chat.id, "Ты пидор!")
 
-
-@bot.message_handler(content_types=["document"])
-def get_document(message):
-    try:
-        file_name = message.document.file_name
-        user_name = message.chat.username
-        user_id = message.chat.id
-        fileID = message.document.file_id
-
-        logger.info(f"Get FILE {file_name} from USER {user_name} mit ID {user_id}")
-        if file_name.endswith(".txt"):
-            bot.send_message(message.chat.id, "Файл успешно загружен, веду обработку")
-            file_info = bot.get_file(fileID)
-            downloaded_file = bot.download_file(file_info.file_path)
-            if len(downloaded_file) < 10:
-                logger.info(f"Error FILE {file_name} from USER {user_name} mit ID {user_id} - ERROR ZERO FILE")
-                bot.send_message(message.chat.id, "Вы загрузили пустой файл")
-
-            tiket_list = ConverterData.import_record(downloaded_file.decode('utf-8'))
-            ConverterData.upload_session(tiket_list)
-
-            logger.info(f"Get FILE {file_name} from USER {user_name} mit ID {user_id}")
-            bot.send_message(message.chat.id, "Файл успешно обработан, данные внесены в таблицы")
-        else:
-            bot.send_message(message.chat.id, "Формат файла должен быть TXT")
-
-    except Exception as ex:
-        logger.info(f"Error FILE {file_name} from USER {user_name} mit ID {user_id} - ERROR {ex}")
-        bot.send_message(message.chat.id, "Что-то пошло не так, попробуйте обратиться к боту позже")
+@bot.message_handler(commands=['start'])
+def start(message: types.Message):
+    user_id = message.chat.id
+    telegram_username = message.chat.username
+    Profile.objects.get_or_create(
+        telegram_id=user_id,
+        telegram_username=telegram_username,
+    )
+    bot.send_message(message.chat.id, "Вы успешно инициализированны в боте, "
+                                      "для получения прав обратитесь к администратору")
 
 
 @bot.message_handler(commands=['clear'])
-def start_message(message):
+def start_message(message: types.Message):
     session = SessionTaxi.objects.all()
     session.delete()
     bot.send_message(message.chat.id, "Список сессий успешно очищен")
+
+
+@bot.message_handler(commands=['create'])
+def create_table(message: types.Message):
+    # scope = [settings.GOOGLE_API_SHEETS,
+    #          settings.GOOGLE_API_AUTH]
+    # file = path.join("data_filtering", settings.FILE_API_GOOGLE_KEY)
+    # credentials = ServiceAccountCredentials.from_json_keyfile_name(file, scope)
+    # client = gspread.authorize(credentials)
+    # sh = client.create('Taxi_klp')
+    # sh.share('blackwood20192@gmail.com', perm_type='user', role='writer')
+    bot.send_message(message.chat.id, "Таблица создана")
+
+
+@bot.message_handler(commands=['read'])
+def read_table(message: types.Message):
+    sheets = ConnectGoogleSheet()
+    # worksheet = sheets.sh.add_worksheet(title="A worksheet24", rows=10000, cols=20)
+    worksheet = sheets.sh.worksheet("A worksheet24")
+    values_list = worksheet.col_values(1)
+    sessions = SessionTaxi.objects.all()
+    list_sessions = []
+
+    for session in sessions:
+        if session.time:
+            correct_time = session.time.strftime("%H:%M.%f")
+        else: correct_time = session.time
+        list_sessions.append([
+            session.date_session.strftime("%Y-%m-%d %H:%M:%S.%f"),
+            session.phone,
+            correct_time,
+            session.starting_point,
+            session.end_point,
+            session.price
+        ])
+    position = f"A{len(values_list) + 1}:F{len(values_list) + len(sessions)}"
+    print(position)
+    worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
+
+    bot.send_message(message.chat.id, "Данные добавлены в таблицу")
+
+
+@bot.message_handler(content_types=["document"])
+def get_document(message: types.Message):
+    connect_bot = BotConnect(bot, message)
+
+    name_sheet = connect_bot.file_name[25: -4]
+    if Profile.objects.filter(name_sheet=name_sheet).exists():
+        profile = Profile.objects.get(name_sheet=name_sheet)
+    else:
+        connect_bot.error_message()
+        return
+
+    file = connect_bot.get_telegram_file()
+    if file:
+        upload_file = ConverterData()
+        upload_file.import_session(file)
+        name_sheet = connect_bot.file_name[25: -4]
+        upload_file.upload_session(profile)
+        connect_bot.success_message()
+
+
+
 
 
 # def index(request):
