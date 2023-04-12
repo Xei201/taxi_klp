@@ -85,7 +85,7 @@ class ConverterData():
                 ticket = line.split(',')
 
                 if len(ticket) < 4:
-                    self.ticket_error_list.append(ticket)
+                    self.ticket_error_list.append([line])
                     continue
 
                 data = ticket[0] + ticket[1].split(" ")[1]
@@ -126,9 +126,9 @@ class ConverterData():
 
     def list_data_session(self) -> list:
         all_session = SessionTaxi.objects.count()
-        sessions = SessionTaxi.objects.all()[(all_session - self.amount):]
-        list_sessions = []
+        sessions = SessionTaxi.objects.all().order_by("pk")[(all_session - self.amount):]
 
+        list_sessions = []
         for session in sessions:
             if session.time:
                 correct_time = session.time.strftime("%H:%M.%f")
@@ -147,39 +147,40 @@ class ConverterData():
 
 class ConnectGoogleSheet():
     def __init__(self):
-        # self.client = self.get_client()
-        self.sh = self.get_sheet()
-
-    # @classmethod
-    # def get_client(cls):
-    #     scope = [settings.GOOGLE_API_SHEETS,
-    #              settings.GOOGLE_API_AUTH]
-    #     file = path.join("data_filtering", settings.FILE_API_GOOGLE_KEY)
-    #     credentials = ServiceAccountCredentials.from_json_keyfile_name(file, scope)
-    #     client = gspread.authorize(credentials)
-    #     return client
+        self.client = self.get_client()
+        self.sh = self.get_client().open_by_key(settings.GOOGLE_SHEETS_ID)
 
     @classmethod
-    def get_sheet(cls):
+    def get_client(cls):
         scope = [settings.GOOGLE_API_SHEETS,
                  settings.GOOGLE_API_AUTH]
         file = path.join("data_filtering", settings.FILE_API_GOOGLE_KEY)
         credentials = ServiceAccountCredentials.from_json_keyfile_name(file, scope)
         client = gspread.authorize(credentials)
-        return client.open_by_key(settings.GOOGLE_SHEETS_ID)
+        return client
 
     def initial_sheet_google(self, name_sheet):
-        self.sh.add_worksheet(title=name_sheet, rows=10000, cols=20)
+        worksheet = self.sh.add_worksheet(title=name_sheet, rows=10000, cols=20)
         name_sheet_error = name_sheet + settings.ERROR_NAME_SHEET
-        self.sh.add_worksheet(title=name_sheet_error, rows=10000, cols=20)
+        worksheet2 = self.sh.add_worksheet(title=name_sheet_error, rows=10000, cols=20)
+
+        worksheet.update(
+            'A1',
+            [["Дата", "Телефон", "Время", "Начальная точка", "Конечная точка", "Сумма"]],
+            value_input_option='USER_ENTERED')
+        worksheet2.update('A1', [["Ошибочные строки"]], value_input_option='USER_ENTERED')
 
     def upload_data_to_sheet(self, list_sessions: list, name: str) -> bool:
         worksheet = self.sh.worksheet(str(name))
         values_list = worksheet.col_values(1)
+        col = settings.LATIN[len(list_sessions[0])]
 
-        position = f"A{len(values_list) + 1}:F{len(values_list) + len(list_sessions)}"
+        position = f"A{len(values_list) + 1}:{col}{len(values_list) + len(list_sessions)}"
         try:
             worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
+            col2 = settings.LATIN[len(list_sessions[0]) + 1]
+            position_end_line = f"{col2}{len(values_list) + len(list_sessions)}"
+            worksheet.update(position_end_line, "Конец сессии записи", value_input_option='USER_ENTERED')
         except Exception:
             return False
         return True

@@ -85,7 +85,6 @@ def read_table(message: types.Message):
             session.price
         ])
     position = f"A{len(values_list) + 1}:F{len(values_list) + len(sessions)}"
-    print(position)
     worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
 
     bot.send_message(message.chat.id, "Данные добавлены в таблицу")
@@ -101,8 +100,7 @@ def get_document(message: types.Message):
         sheet = Sheet.objects.get(name=name_sheet)
 
     else:
-        connect_bot.error_message("name_sheet not found")
-        return
+        sheet = generic_sheet(name_sheet)
 
     file = connect_bot.get_telegram_file()
     if not file:
@@ -113,12 +111,15 @@ def get_document(message: types.Message):
     upload_file.import_session(file)
     upload_file.upload_session(sheet)
     list_sessions = upload_file.list_data_session()
-    name_sheet = SessionTaxi.objects.last().sheet
+    name_sheet = str(sheet)
     sheet = ConnectGoogleSheet()
-
-    if not sheet.upload_data_to_sheet(list_sessions, name_sheet):
+    list_sessions_error = upload_file.ticket_error_list
+    name_sheet_error = name_sheet + settings.ERROR_NAME_SHEET
+    if not (sheet.upload_data_to_sheet(list_sessions, name_sheet) and
+        sheet.upload_data_to_sheet(list_sessions_error, name_sheet_error)):
         connect_bot.error_message("not find connect Google API")
         return
+
     connect_bot.success_message()
 
 
@@ -132,11 +133,16 @@ def add_sheet(message: types.Message):
         bot.send_message(message.chat.id, "Лист с таким именем уже есть")
         return add(message)
 
-    Sheet.objects.create(name=name_sheet)
-    sheets = ConnectGoogleSheet()
-    sheets.initial_sheet_google(name_sheet)
+    generic_sheet(message, name_sheet)
     bot.send_message(message.chat.id, "Добавлен новый лист таблицы")
 
+
+def generic_sheet(name_sheet: str):
+    sheet = Sheet.objects.create(name=name_sheet)
+    sheets = ConnectGoogleSheet()
+    sheets.initial_sheet_google(name_sheet)
+
+    return sheet
 
 
 
