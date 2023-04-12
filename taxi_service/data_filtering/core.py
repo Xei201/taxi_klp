@@ -83,9 +83,11 @@ class ConverterData():
         for line in file.split("\n"):
             try:
                 ticket = line.split(',')
-
-                if len(ticket) < 4:
-                    self.ticket_error_list.append([line])
+                print(ticket)
+                if len(ticket) < 4 or len(ticket) > 8:
+                    if len(line) > 0:
+                        self.ticket_error_list.append([line])
+                        print("ERROR", line, len(line))
                     continue
 
                 data = ticket[0] + ticket[1].split(" ")[1]
@@ -93,6 +95,21 @@ class ConverterData():
                 data_correct = datetime.strptime(data, '%d.%m.%Y%H:%M')
                 data_correct_timezone = timezone.make_aware(data_correct, timezone.get_current_timezone())
                 phone = ticket[1].split(" ")[-1]
+
+                # if not re.fullmatch(r'^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$', phone):
+                #     if line != "":
+                #       self.ticket_error_list.append(line)
+                #     print("point2")
+                #     continue
+
+                if not ticket[-1].strip().isdigit():
+
+                    if len(line) > 0:
+                        print("ERROR", line, len(line))
+                        self.ticket_error_list.append([line])
+
+                    continue
+
                 if re.fullmatch(r'\d+:\d+', ticket[-4]):
                     time_correct = datetime.strptime(ticket[-4], '%H:%M')
                 else:
@@ -101,8 +118,12 @@ class ConverterData():
                 ticket_correct = (data_correct_timezone, phone, time_correct, *ticket[-3:])
                 self.ticket_list.append(ticket_correct)
             except Exception:
-                self.ticket_error_list.append(line)
+                if len(line) > 0:
+                    print("ERROR", line, len(line))
+                    self.ticket_error_list.append([line])
                 continue
+        for element in self.ticket_error_list:
+            print(element)
 
     def upload_session(self, sheet):
         list_session = []
@@ -171,17 +192,25 @@ class ConnectGoogleSheet():
         worksheet2.update('A1', [["Ошибочные строки"]], value_input_option='USER_ENTERED')
 
     def upload_data_to_sheet(self, list_sessions: list, name: str) -> bool:
+        print(list_sessions)
         worksheet = self.sh.worksheet(str(name))
+        print("point1")
         values_list = worksheet.col_values(1)
+        print("point2")
+        print(len(list_sessions[0]))
         col = settings.LATIN[len(list_sessions[0])]
+        print("point3")
 
+        for element in list_sessions:
+            print(element)
         position = f"A{len(values_list) + 1}:{col}{len(values_list) + len(list_sessions)}"
         try:
             worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
             col2 = settings.LATIN[len(list_sessions[0]) + 1]
             position_end_line = f"{col2}{len(values_list) + len(list_sessions)}"
             worksheet.update(position_end_line, "Конец сессии записи", value_input_option='USER_ENTERED')
-        except Exception:
+        except Exception as ex:
+            print("ERROR GOOGLE API", ex)
             return False
         return True
 
