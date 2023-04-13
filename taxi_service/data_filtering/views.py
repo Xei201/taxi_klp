@@ -13,6 +13,7 @@ from data_filtering.core import ConverterData, BotConnect, ConnectGoogleSheet
 from data_filtering.models import SessionTaxi, Profile, Sheet
 from taxi_service import settings
 
+# Загрузка токена для активации бота, slice не трогать
 token = settings.BOT_TOKEN[1:-1]
 bot = TeleBot(token)
 logger = logging.getLogger(__name__)
@@ -30,6 +31,8 @@ class UpdateBot(APIView):
 
 @bot.message_handler(commands=['start'])
 def start(message: types.Message):
+    """Производит добавление пользователя в БД"""
+
     user_id = message.chat.id
     telegram_username = message.chat.username
     Profile.objects.get_or_create(
@@ -42,6 +45,8 @@ def start(message: types.Message):
 
 @bot.message_handler(commands=['clear'])
 def clear_bd(message: types.Message):
+    """Очистка списка всех сессий в БД"""
+
     session = SessionTaxi.objects.all()
     session.delete()
     bot.send_message(message.chat.id, "Список сессий успешно очищен")
@@ -49,6 +54,8 @@ def clear_bd(message: types.Message):
 
 @bot.message_handler(commands=['add'])
 def add(message: types.Message):
+    """Отвечает за добавление нового листа таблицы в БД и в Google Sheets"""
+
     bot.send_message(message.chat.id, "Для добавления нового листа таблицы, введите имя листа: ")
     bot.register_next_step_handler(message, add_sheet)
 
@@ -65,6 +72,7 @@ def create_table(message: types.Message):
 
 @bot.message_handler(commands=['read'])
 def read_table(message: types.Message):
+    """Тестовый модуль для отработки работы с Google Sheets"""
     sheets = ConnectGoogleSheet()
     # worksheet = sheets.sh.add_worksheet(title="A worksheet24", rows=10000, cols=20)
     worksheet = sheets.sh.worksheet("Такси_Счастье_1")
@@ -92,30 +100,46 @@ def read_table(message: types.Message):
 
 @bot.message_handler(content_types=["document"])
 def get_document(message: types.Message):
-    connect_bot = BotConnect(bot, message)
+    """Ключевой модуль занимается обработкой документов"""
 
+    # Создаём экземпляр класса, отвечающего за удобство взаимодействия с ботом
+    connect_bot = BotConnect(bot, message)
+    # Окончание названия файла является названием листа в Google Sheets
     name_sheet = connect_bot.file_name[25: -4]
 
+    # Проверяет по названию факт наличия листа, если нет создаёт, если есть вызывает его,
+    # так как он нужен для корректного создания сессий
     if Sheet.objects.filter(name=name_sheet).exists():
         sheet = Sheet.objects.get(name=name_sheet)
-
     else:
         sheet = generic_sheet(name_sheet)
 
+    # Загружает файл из хранилища telegram, если файл пустой пишет сообщение человеку и логирует данный факт
     file = connect_bot.get_telegram_file()
     if not file:
         connect_bot.error_message("file have zero lines")
         return
 
+    # Через класс ConverterData осуществляется чтение ланных из файла и их запись в БД
     upload_file = ConverterData()
     upload_file.import_session(file)
     upload_file.upload_session(sheet)
 
+    # Стение данных из БД с приведением их к допустимому для загрузки в Google Sheets формату
     list_sessions = upload_file.list_data_session()
-    name_sheet = str(sheet)
-    sheet = ConnectGoogleSheet()
+    # Загружаем list в который собраны все строки из файла, что не могли быть обработаны
     list_sessions_error = upload_file.ticket_error_list
+    name_sheet = str(sheet)
+
+    # Через класс ConnectGoogleSheet взаимодействуем с API Google Sheets
+    sheet = ConnectGoogleSheet()
+
+    # Для строк обработанных с ошибкой в Google Sheets предполагается отдельный лист,
+    # имя которого образона от имени листа для записи корректных данных + строка ERROR_NAME_SHEET
     name_sheet_error = name_sheet + settings.ERROR_NAME_SHEET
+
+    # Через метод upload_data_to_sheet осуществляется загрузка обработанных и
+    # не обработанных данных в два разных листа
     if not (sheet.upload_data_to_sheet(list_sessions, name_sheet) and
         sheet.upload_data_to_sheet(list_sessions_error, name_sheet_error)):
         connect_bot.error_message("not find connect Google API")
@@ -125,70 +149,31 @@ def get_document(message: types.Message):
 
 
 def add_sheet(message: types.Message):
+    """Проверяет валидность имени для листа и в случае корректного названия вызывает его созлание"""
+
     name_sheet = message.text
+
+    # Через ключевое слово Break можно выйти из режима создания листа
     if name_sheet == "Break":
         bot.send_message(message.chat.id, "Прерываю выполнение команды")
         return
 
+    # Проверка наличия листа
     if Sheet.objects.filter(name=name_sheet).exists():
         bot.send_message(message.chat.id, "Лист с таким именем уже есть")
         return add(message)
 
+    # Создаёт лист
     generic_sheet(message, name_sheet)
     bot.send_message(message.chat.id, "Добавлен новый лист таблицы")
 
 
 def generic_sheet(name_sheet: str):
+    """Отвечает за создание листа в таблице по запросу"""
+
     sheet = Sheet.objects.create(name=name_sheet)
     sheets = ConnectGoogleSheet()
     sheets.initial_sheet_google(name_sheet)
 
     return sheet
 
-
-
-# def index(request):
-#
-#     print(settings.BOT_TOKEN)
-#     if request.META['CONTENT_TYPE'] == 'application/json':
-#
-#         json_data = request.body.decode('utf-8')
-#         print(json_data)
-#         update = telebot.types.Update.de_json(json_data)
-#         bot.process_new_updates([update])
-#
-#         return HttpResponse("")
-#
-#     else:
-#         raise PermissionDenied
-#
-#
-# @bot.message_handler(content_types=["text"])
-# def get_okn(message):
-#     bot.send_message(message.chat.id, "Hello, bot!")
-#
-#
-
-
-#     if request.method == "POST":
-#         update = telebot.types.Update.de_json(request.body.decode('utf-8'))
-#         bot.process_new_updates([update])
-#
-#     return HttpResponse('<h1>Ты подключился!</h1>')
-#
-#
-# @bot.message_handler(commands=['start', 'help'])
-# def send_welcome(message):
-#     bot.reply_to(message, "Howdy, how are you doing?")
-
-
-# @bot.message_handler(commands=['start'])
-# def start(message: telebot.types.Message):
-#     name = ''
-#     if message.from_user.last_name is None:
-#         name = f'{message.from_user.first_name}'
-#     else:
-#         name = f'{message.from_user.first_name} {message.from_user.last_name}'
-#     bot.send_message(message.chat.id, f'Привет! {name}\n'
-#                                       f'Я бот, который будет спамить вам беседу :)\n\n'
-#                                       f'Чтобы узнать больше команд, напишите /help')

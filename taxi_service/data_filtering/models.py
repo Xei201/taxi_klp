@@ -3,6 +3,7 @@ from django.db import models
 
 
 class Profile(models.Model):
+    """Дополнительные параметры к User в основном связанных с параметрами telegram account"""
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -29,6 +30,7 @@ class Profile(models.Model):
 
 
 class Sheet(models.Model):
+    """Ведётся список листов в Google Sheets к которым привязанны сессии такси"""
     name = models.CharField(
         primary_key=True,
         verbose_name="Name sheet",
@@ -50,6 +52,8 @@ class Sheet(models.Model):
 
 
 class SessionTaxi(models.Model):
+    """Сессии такси"""
+
     sheet = models.ForeignKey(
         Sheet,
         on_delete=models.CASCADE,
