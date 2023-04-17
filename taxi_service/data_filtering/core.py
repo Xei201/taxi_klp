@@ -230,23 +230,32 @@ class ConnectGoogleSheet():
             value_input_option='USER_ENTERED')
         worksheet2.update('A1', [["Ошибочные строки"]], value_input_option='USER_ENTERED')
 
-    def upload_data_to_sheet(self, list_sessions: list, name: str) -> bool:
+    def upload_data_to_sheet(self, list_sessions: list, name: str, num_start_col: int) -> bool:
         """Загружает данные в указанный лист Google Sheets"""
 
         worksheet = self.sh.worksheet(str(name))
-        # Загрузка 1 столбца из листа для получения данных о количестве строк уже записанных данных
-        values_list = worksheet.col_values(1)
-        col = settings.LATIN[len(list_sessions[0])]
+        # Загрузка указанного столбца из листа для получения данных о количестве строк уже записанных данных
+        values_list = worksheet.col_values(num_start_col)
+
+        # Определение начальной колонки
+        start_col = settings.LATIN[num_start_col]
+        amount_line = len(values_list)
 
         # Расчитывает диапазон ячеек для загрузки новых данных с учётом уже имеющихся в листе данных,
         # чтобы не перетереть их
-        position = f"A{len(values_list) + 1}:{col}{len(values_list) + len(list_sessions)}"
+        position = f"{start_col}{amount_line + 1}"
+        print(position)
         try:
             worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
-            col2 = settings.LATIN[len(list_sessions[0]) + 1]
+            col2 = settings.LATIN[len(list_sessions[0]) + num_start_col]
 
-            # Как дополнительный маркер в конце загруженных данных добавляется метка
-            position_end_line = f"{col2}{len(values_list) + len(list_sessions)}"
+            # Как дополнительный маркер в начале и конце загруженных данных добавляется метка
+            position_start_line = f"{col2}{amount_line}"
+            print(position_start_line)
+            worksheet.update(position_start_line, "Начало сессии записи", value_input_option='USER_ENTERED')
+
+            position_end_line = f"{col2}{amount_line + len(list_sessions)}"
+            print(position_end_line)
             worksheet.update(position_end_line, "Конец сессии записи", value_input_option='USER_ENTERED')
         except Exception as ex:
             logger.info(f"Error load str in Google Sheets, error {ex}")

@@ -138,10 +138,9 @@ def get_document(message: types.Message):
     # имя которого образона от имени листа для записи корректных данных + строка ERROR_NAME_SHEET
     name_sheet_error = name_sheet + settings.ERROR_NAME_SHEET
 
-    # Через метод upload_data_to_sheet осуществляется загрузка обработанных и
-    # не обработанных данных в два разных листа
-    if not (sheet.upload_data_to_sheet(list_sessions, name_sheet) and
-        sheet.upload_data_to_sheet(list_sessions_error, name_sheet_error)):
+    # Через метод upload_data_to_sheet осуществляется загрузка данных в листы таблицы
+    if not (sheet.upload_data_to_sheet(list_sessions, name_sheet, 1) and
+        sheet.upload_data_to_sheet(list_sessions_error, name_sheet, 9)):
         connect_bot.error_message("not find connect Google API")
         return
 
