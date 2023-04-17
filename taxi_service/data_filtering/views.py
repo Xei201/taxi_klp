@@ -1,5 +1,6 @@
 import json
 import logging
+from functools import wraps
 from os import path
 
 import gspread
@@ -11,6 +12,7 @@ from rest_framework.views import APIView
 
 from data_filtering.core import ConverterData, BotConnect, ConnectGoogleSheet
 from data_filtering.models import SessionTaxi, Profile, Sheet
+from data_filtering.permissions import StaffPermission
 from taxi_service import settings
 
 # Загрузка токена для активации бота, slice не трогать
@@ -19,7 +21,33 @@ bot = TeleBot(token)
 logger = logging.getLogger(__name__)
 
 
+def private_access():
+    """
+    Проверяет право доступа пользователя к операциям бота
+    """
+    def deco_restrict(f):
+
+        @wraps(f)
+        def f_restrict(message, *args, **kwargs):
+            telegram_user_id = message.chat.id
+            profile = Profile.objects.get(telegram_id=telegram_user_id)
+
+            if not profile.user:
+                bot.send_message(message.chat.id, "Вы не имеете прав доступа, обратитесь к Администратору")
+
+            if profile.user.is_staff:
+                return f(message, *args, **kwargs)
+            else:
+                bot.send_message(message.chat.id, "Вы не имеете прав доступа, обратитесь к Администратору")
+
+        return f_restrict  # true decorator
+
+    return deco_restrict
+
+
 class UpdateBot(APIView):
+    # permission_classes = (StaffPermission, )
+
     def post(self, request):
         # Сюда должны получать сообщения от телеграм и далее обрабатываться ботом
         json_str = request.body.decode('UTF-8')
@@ -53,6 +81,7 @@ def clear_bd(message: types.Message):
 
 
 @bot.message_handler(commands=['add'])
+@private_access()
 def add(message: types.Message):
     """Отвечает за добавление нового листа таблицы в БД и в Google Sheets"""
 
@@ -179,4 +208,5 @@ def generic_sheet(name_sheet: str):
     sheets.initial_sheet_google(name_sheet)
 
     return sheet
+
 
