@@ -134,15 +134,14 @@ def get_document(message: types.Message):
     # Через класс ConnectGoogleSheet взаимодействуем с API Google Sheets
     sheet = ConnectGoogleSheet()
 
-    # Для строк обработанных с ошибкой в Google Sheets предполагается отдельный лист,
-    # имя которого образона от имени листа для записи корректных данных + строка ERROR_NAME_SHEET
-    name_sheet_error = name_sheet + settings.ERROR_NAME_SHEET
-
     # Через метод upload_data_to_sheet осуществляется загрузка данных в листы таблицы
     if not (sheet.upload_data_to_sheet(list_sessions, name_sheet, 1) and
-        sheet.upload_data_to_sheet(list_sessions_error, name_sheet, 9)):
+        sheet.upload_data_to_sheet(list_sessions_error, name_sheet, 10)):
         connect_bot.error_message("not find connect Google API")
         return
+
+    sheet.upload_data_to_sheet(list_sessions, settings.NAME_GROUP_SHEETS, 1)
+    # sheet.upload_data_to_sheet()
 
     connect_bot.success_message()
 
@@ -163,7 +162,7 @@ def add_sheet(message: types.Message):
         return add(message)
 
     # Создаёт лист
-    generic_sheet(message, name_sheet)
+    generic_sheet(name_sheet)
     bot.send_message(message.chat.id, "Добавлен новый лист таблицы")
 
 

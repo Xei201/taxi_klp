@@ -172,6 +172,10 @@ class ConverterData():
             self.amount = len(list_session)
         SessionTaxi.objects.bulk_create(list_session)
 
+    def sum_data_session(self) -> tuple:
+        SessionTaxi.objects.all().order_by("pk")[(all_session - self.amount):]
+
+
     def list_data_session(self) -> list:
         """Выгружает данные сессии для формирования list наполненного list для внесения их в Google Sheets"""
 
@@ -190,7 +194,8 @@ class ConverterData():
                 correct_time,
                 session.starting_point,
                 session.end_point,
-                session.price
+                session.price,
+                str(session.sheet),
             ])
         return list_sessions
 
@@ -215,20 +220,27 @@ class ConnectGoogleSheet():
         return client
 
     def initial_sheet_google(self, name_sheet):
-        """Создание новой пвры листов в Google Sheets
-        Один для валидных данных, другой для записи бракованных строк"""
+        """Создание нового листа в Google Sheets для сессий водителя"""
 
-        # Создание 2 листов
+        # Создание листа
         worksheet = self.sh.add_worksheet(title=name_sheet, rows=10000, cols=20)
-        name_sheet_error = name_sheet + settings.ERROR_NAME_SHEET
-        worksheet2 = self.sh.add_worksheet(title=name_sheet_error, rows=10000, cols=20)
 
-        # Внесение в них колонтитулов
+        # Внесение в него колонтитулов
         worksheet.update(
             'A1',
-            [["Дата", "Телефон", "Время", "Начальная точка", "Конечная точка", "Сумма"]],
+            [["Дата",
+              "Телефон",
+              "Время",
+              "Начальная точка",
+              "Конечная точка",
+              "Сумма",
+              "Водитель",
+              "Статус сессии",
+              " ",
+              "Ошибочные строки",
+              "Статус сессии",
+              ]],
             value_input_option='USER_ENTERED')
-        worksheet2.update('A1', [["Ошибочные строки"]], value_input_option='USER_ENTERED')
 
     def upload_data_to_sheet(self, list_sessions: list, name: str, num_start_col: int) -> bool:
         """Загружает данные в указанный лист Google Sheets"""
@@ -250,7 +262,7 @@ class ConnectGoogleSheet():
             col2 = settings.LATIN[len(list_sessions[0]) + num_start_col]
 
             # Как дополнительный маркер в начале и конце загруженных данных добавляется метка
-            position_start_line = f"{col2}{amount_line}"
+            position_start_line = f"{col2}{amount_line + 1}"
             print(position_start_line)
             worksheet.update(position_start_line, "Начало сессии записи", value_input_option='USER_ENTERED')
 
