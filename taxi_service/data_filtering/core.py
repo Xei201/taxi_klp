@@ -3,6 +3,7 @@ import logging
 import re
 from os import path
 import gspread
+from django.db.models import Sum
 from oauth2client.service_account import ServiceAccountCredentials
 
 from django.db import transaction
@@ -173,8 +174,12 @@ class ConverterData():
         SessionTaxi.objects.bulk_create(list_session)
 
     def sum_data_session(self) -> tuple:
-        SessionTaxi.objects.all().order_by("pk")[(all_session - self.amount):]
-
+        date = datetime.today().strftime("%Y-%m-%d %H:%M:%S.%f")
+        count = self.amount
+        all_session = SessionTaxi.objects.count()
+        print("point2")
+        qs = SessionTaxi.objects.all().order_by("pk")[(all_session - self.amount):].values_list("price", flat=True)
+        return [[date, count, sum(qs)]]
 
     def list_data_session(self) -> list:
         """Выгружает данные сессии для формирования list наполненного list для внесения их в Google Sheets"""

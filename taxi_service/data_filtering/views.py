@@ -141,7 +141,10 @@ def get_document(message: types.Message):
         return
 
     sheet.upload_data_to_sheet(list_sessions, settings.NAME_GROUP_SHEETS, 1)
-    # sheet.upload_data_to_sheet()
+    print("point1")
+    sum_data_session = upload_file.sum_data_session()
+    sum_data_session[0].insert(1, name_sheet)
+    sheet.upload_data_to_sheet(sum_data_session, settings.NAME_GENERAL_SHEETS, 1)
 
     connect_bot.success_message()
 
