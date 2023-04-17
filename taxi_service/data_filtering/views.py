@@ -134,17 +134,19 @@ def get_document(message: types.Message):
     # Через класс ConnectGoogleSheet взаимодействуем с API Google Sheets
     sheet = ConnectGoogleSheet()
 
+    # СБорка данных для загрузки в общую таблицу отчётности
+    sum_data_session = upload_file.sum_data_session()
+    sum_data_session[0].insert(1, name_sheet)
+
     # Через метод upload_data_to_sheet осуществляется загрузка данных в листы таблицы
     if not (sheet.upload_data_to_sheet(list_sessions, name_sheet, 1) and
-        sheet.upload_data_to_sheet(list_sessions_error, name_sheet, 10)):
+        sheet.upload_data_to_sheet(list_sessions_error, name_sheet, 10) and
+        sheet.upload_data_to_sheet(list_sessions, settings.NAME_GROUP_SHEETS, 1) and
+        sheet.upload_data_to_sheet(sum_data_session, settings.NAME_GENERAL_SHEETS, 1)):
         connect_bot.error_message("not find connect Google API")
         return
 
-    sheet.upload_data_to_sheet(list_sessions, settings.NAME_GROUP_SHEETS, 1)
-    print("point1")
-    sum_data_session = upload_file.sum_data_session()
-    sum_data_session[0].insert(1, name_sheet)
-    sheet.upload_data_to_sheet(sum_data_session, settings.NAME_GENERAL_SHEETS, 1)
+
 
     connect_bot.success_message()
 
