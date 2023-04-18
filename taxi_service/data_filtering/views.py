@@ -1,10 +1,5 @@
-import json
 import logging
 from functools import wraps
-from os import path
-
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 
 from telebot import TeleBot, types
 from rest_framework.response import Response
@@ -12,19 +7,17 @@ from rest_framework.views import APIView
 
 from data_filtering.core import ConverterData, BotConnect, ConnectGoogleSheet
 from data_filtering.models import SessionTaxi, Profile, Sheet
-from data_filtering.permissions import StaffPermission
 from taxi_service import settings
 
 # Загрузка токена для активации бота, slice не трогать
 token = settings.BOT_TOKEN[1:-1]
 bot = TeleBot(token)
+# Подключение для логирования ошибок
 logger = logging.getLogger(__name__)
 
 
 def private_access():
-    """
-    Проверяет право доступа пользователя к операциям бота
-    """
+    """Проверяет право доступа пользователя к операциям бота"""
     def deco_restrict(f):
 
         @wraps(f)
@@ -40,7 +33,7 @@ def private_access():
             else:
                 bot.send_message(message.chat.id, "Вы не имеете прав доступа, обратитесь к Администратору")
 
-        return f_restrict  # true decorator
+        return f_restrict  # сам декоратор
 
     return deco_restrict
 
@@ -91,6 +84,7 @@ def add(message: types.Message):
 
 # Доделать опцию создания новой таблицы
 @bot.message_handler(commands=['create'])
+@private_access()
 def create_table(message: types.Message):
     """Используется при создании новой таблицы"""
     # sheets = ConnectGoogleSheet()
@@ -99,35 +93,8 @@ def create_table(message: types.Message):
     bot.send_message(message.chat.id, "Таблица создана")
 
 
-@bot.message_handler(commands=['read'])
-def read_table(message: types.Message):
-    """Тестовый модуль для отработки работы с Google Sheets"""
-    sheets = ConnectGoogleSheet()
-    # worksheet = sheets.sh.add_worksheet(title="A worksheet24", rows=10000, cols=20)
-    worksheet = sheets.sh.worksheet("Такси_Счастье_1")
-    values_list = worksheet.col_values(1)
-    sessions = SessionTaxi.objects.all()
-    list_sessions = []
-
-    for session in sessions:
-        if session.time:
-            correct_time = session.time.strftime("%H:%M.%f")
-        else: correct_time = session.time
-        list_sessions.append([
-            session.date_session.strftime("%Y-%m-%d %H:%M:%S.%f"),
-            session.phone,
-            correct_time,
-            session.starting_point,
-            session.end_point,
-            session.price
-        ])
-    position = f"A{len(values_list) + 1}:F{len(values_list) + len(sessions)}"
-    worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
-
-    bot.send_message(message.chat.id, "Данные добавлены в таблицу")
-
-
 @bot.message_handler(content_types=["document"])
+@private_access()
 def get_document(message: types.Message):
     """Ключевой модуль занимается обработкой документов"""
 
@@ -168,14 +135,14 @@ def get_document(message: types.Message):
     sum_data_session[0].insert(1, name_sheet)
 
     # Через метод upload_data_to_sheet осуществляется загрузка данных в листы таблицы
-    if not (sheet.upload_data_to_sheet(list_sessions, name_sheet, 1) and
-        sheet.upload_data_to_sheet(list_sessions_error, name_sheet, 10) and
-        sheet.upload_data_to_sheet(list_sessions, settings.NAME_GROUP_SHEETS, 1) and
-        sheet.upload_data_to_sheet(sum_data_session, settings.NAME_GENERAL_SHEETS, 1)):
+    if not (
+            sheet.upload_data_to_sheet(list_sessions, name_sheet, 1) and
+            sheet.upload_data_to_sheet(list_sessions_error, name_sheet, 10) and
+            sheet.upload_data_to_sheet(list_sessions, settings.NAME_GROUP_SHEETS, 1) and
+            sheet.upload_data_to_sheet(sum_data_session, settings.NAME_GENERAL_SHEETS, 1)
+            ):
         connect_bot.error_message("not find connect Google API")
         return
-
-
 
     connect_bot.success_message()
 
@@ -210,3 +177,30 @@ def generic_sheet(name_sheet: str):
     return sheet
 
 
+@bot.message_handler(commands=['read'])
+@private_access()
+def read_table(message: types.Message):
+    """Тестовый модуль для отработки работы с Google Sheets"""
+    sheets = ConnectGoogleSheet()
+    # worksheet = sheets.sh.add_worksheet(title="A worksheet24", rows=10000, cols=20)
+    worksheet = sheets.sh.worksheet("Такси_Счастье_1")
+    values_list = worksheet.col_values(1)
+    sessions = SessionTaxi.objects.all()
+    list_sessions = []
+
+    for session in sessions:
+        if session.time:
+            correct_time = session.time.strftime("%H:%M.%f")
+        else: correct_time = session.time
+        list_sessions.append([
+            session.date_session.strftime("%Y-%m-%d %H:%M:%S.%f"),
+            session.phone,
+            correct_time,
+            session.starting_point,
+            session.end_point,
+            session.price
+        ])
+    position = f"A{len(values_list) + 1}:F{len(values_list) + len(sessions)}"
+    worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
+
+    bot.send_message(message.chat.id, "Данные добавлены в таблицу")

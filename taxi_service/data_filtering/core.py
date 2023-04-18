@@ -3,10 +3,8 @@ import logging
 import re
 from os import path
 import gspread
-from django.db.models import Sum
 from oauth2client.service_account import ServiceAccountCredentials
 
-from django.db import transaction
 from django.utils import timezone
 from telebot import TeleBot, types
 
