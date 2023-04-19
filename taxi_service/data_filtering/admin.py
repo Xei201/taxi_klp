@@ -18,7 +18,7 @@ class SheetInLine(TabularInlinePaginated):
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "telegram_id", "telegram_username", "date_create")
     list_filter = ("user", "telegram_id", "telegram_username", "date_create")
-    inlines = [SheetInLine]
+    # inlines = [SheetInLine]
     list_per_page = 10
     search_fields = ("name", )
 
