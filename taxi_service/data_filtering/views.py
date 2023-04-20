@@ -5,11 +5,15 @@ from telebot import TeleBot, types
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from data_filtering.core import ConverterData, BotConnect, ConnectGoogleSheet
-from data_filtering.models import SessionTaxi, Profile, Sheet
+from .core import ConverterData, BotConnect, ConnectGoogleSheet
+from .models import SessionTaxi, Profile, Sheet
+from .tasks import send_test_telegram_message_task, send_long_message_task
+
 from taxi_service import settings
 
+
 # Загрузка токена для активации бота, slice не трогать
+
 token = settings.BOT_TOKEN[1:-1]
 bot = TeleBot(token)
 # Подключение для логирования ошибок
@@ -80,6 +84,37 @@ def add(message: types.Message):
 
     bot.send_message(message.chat.id, "Для добавления нового листа таблицы, введите имя листа: ")
     bot.register_next_step_handler(message, add_sheet)
+
+
+@bot.message_handler(commands=['test_m'])
+@private_access()
+def test_m(message: types.Message):
+    try:
+        bot.send_message(message.chat.id, "Тестирование отложенного соо")
+        send_test_telegram_message_task.delay(
+            message.chat.id
+        )
+    except Exception as ex:
+        print("Error:", ex)
+
+
+@bot.message_handler(commands=['long_m'])
+@private_access()
+def long_m(message: types.Message):
+    bot.send_message(message.chat.id, "Для запуска системы укажите время задержки отправки сообщения в секундах: ")
+    bot.register_next_step_handler(message, add_test_long_message)
+
+
+def add_test_long_message(message):
+    time_out = int(message.text)
+    try:
+        bot.send_message(message.chat.id, "Тестирование отложенного соо")
+        send_long_message_task.apply_async(
+            (message.chat.id, time_out),
+            countdown=time_out
+        )
+    except Exception as ex:
+        print("Error:", ex)
 
 
 # Доделать опцию создания новой таблицы

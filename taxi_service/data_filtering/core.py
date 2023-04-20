@@ -8,7 +8,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from django.utils import timezone
 from telebot import TeleBot, types
 
-from data_filtering.models import SessionTaxi
+from .models import SessionTaxi
 from taxi_service import settings
 
 logger = logging.getLogger(__name__)
