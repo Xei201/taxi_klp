@@ -90,7 +90,7 @@ def add(message: types.Message):
 @private_access()
 def test_m(message: types.Message):
     try:
-        bot.send_message(message.chat.id, "Тестирование отложенного соо")
+        bot.send_message(message.chat.id, "Тестирование отложенного процесса")
         send_test_telegram_message_task.delay(
             message.chat.id
         )
@@ -101,16 +101,23 @@ def test_m(message: types.Message):
 @bot.message_handler(commands=['long_m'])
 @private_access()
 def long_m(message: types.Message):
+    """Система для отправки отложенных сообщений"""
     bot.send_message(message.chat.id, "Для запуска системы укажите время задержки отправки сообщения в секундах: ")
     bot.register_next_step_handler(message, add_test_long_message)
 
 
 def add_test_long_message(message):
     time_out = int(message.text)
+    bot.send_message(message.chat.id, "Введите текст сообщения для рассылки")
+    bot.register_next_step_handler(message, add_test_long_message2, time_out)
+
+
+def add_test_long_message2(message, time_out):
+    text_message = message.text
     try:
-        bot.send_message(message.chat.id, "Тестирование отложенного соо")
+        bot.send_message(message.chat.id, "Рассылка загружена в очередь")
         send_long_message_task.apply_async(
-            (message.chat.id, time_out),
+            (time_out, text_message),
             countdown=time_out
         )
     except Exception as ex:

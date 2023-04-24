@@ -27,7 +27,7 @@ telegram_id = 494042950
 app.conf.beat_schedule = {
     'send-tg-mail-every-day': {
         'task': 'data_filtering.tasks.constant_message_task',
-        'schedule': crontab(minute='*/3'),
+        'schedule': crontab(minute='*/2'),
         'args': (telegram_id,)
     }
 }
