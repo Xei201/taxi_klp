@@ -1,12 +1,13 @@
 import logging
 from functools import wraps
 
+from django.db.models import Sum
 from telebot import TeleBot, types
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .core import ConverterData, BotConnect, ConnectGoogleSheet
-from .models import SessionTaxi, Profile, Sheet
+from .models import SessionTaxi, Profile, Sheet, SessionImportBD
 from .tasks import send_test_telegram_message_task, send_long_message_task
 
 from taxi_service import settings
@@ -158,12 +159,12 @@ def get_document(message: types.Message):
         connect_bot.error_message("file have zero lines")
         return
 
-    # Через класс ConverterData осуществляется чтение ланных из файла и их запись в БД
+    # Через класс ConverterData осуществляется чтение данных из файла и их запись в БД
     upload_file = ConverterData()
     upload_file.import_session(file)
     upload_file.upload_session(sheet)
 
-    # Стение данных из БД с приведением их к допустимому для загрузки в Google Sheets формату
+    # Чтение данных из БД с приведением их к допустимому для загрузки в Google Sheets формату
     list_sessions = upload_file.list_data_session()
     # Загружаем list в который собраны все строки из файла, что не могли быть обработаны
     list_sessions_error = upload_file.ticket_error_list
@@ -246,3 +247,13 @@ def read_table(message: types.Message):
     worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
 
     bot.send_message(message.chat.id, "Данные добавлены в таблицу")
+
+
+@bot.message_handler(commands=['test_agregate'])
+@private_access()
+def long_m(message: types.Message):
+    try:
+        test_list = SessionImportBD.objects.filter(id=2).aggregate(avg_data=Sum("amount_record"))
+        bot.send_message(message.chat.id, f"Всего итемов {test_list['avg_data']}")
+    except Exception as ex:
+        bot.send_message(message.chat.id, f"Ошибка {ex}")

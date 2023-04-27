@@ -8,7 +8,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from django.utils import timezone
 from telebot import TeleBot, types
 
-from .models import SessionTaxi
+from .models import SessionTaxi, Profile
 from taxi_service import settings
 
 logger = logging.getLogger(__name__)
@@ -83,6 +83,17 @@ class BotConnect():
         logger.info(f"Get FILE {self.file_name} from USER {self.user_name} "
                     f"mit ID {self.user_id} ERROR {mes}")
         self.bot.send_message(self.user_id, f"Возникла внутренняя ошибка {mes}, обратитесь к администратору")
+
+
+# Прибрать всё это нужно - раскидать методы по класам и настроить наследование
+class BotConnectBase():
+
+    def send_message_staff(self, mes: str) -> None:
+        """Отправка уведомления по стафу"""
+
+        staff_user_id = Profile.objects.filter(user__is_staff=True).values_list("telegram_id", flat=True)
+        for id in staff_user_id:
+            self.bot.send_message(id, mes)
 
 
 class ConverterData():
@@ -247,7 +258,6 @@ class ConnectGoogleSheet():
 
     def upload_data_to_sheet(self, list_sessions: list, name: str, num_start_col: int) -> bool:
         """Загружает данные в указанный лист Google Sheets"""
-
         worksheet = self.sh.worksheet(str(name))
         # Загрузка указанного столбца из листа для получения данных о количестве строк уже записанных данных
         values_list = worksheet.col_values(num_start_col)
@@ -261,7 +271,9 @@ class ConnectGoogleSheet():
         position = f"{start_col}{amount_line + 1}"
         print(position)
         try:
+            print(list_sessions)
             worksheet.update(position, list_sessions, value_input_option='USER_ENTERED')
+            print(len(list_sessions[0]) + num_start_col)
             col2 = settings.LATIN[len(list_sessions[0]) + num_start_col]
 
             # Как дополнительный маркер в начале и конце загруженных данных добавляется метка
@@ -276,6 +288,5 @@ class ConnectGoogleSheet():
             logger.info(f"Error load str in Google Sheets, error {ex}")
             return False
         return True
-
 
 

@@ -10,6 +10,7 @@ config.read("taxi_service/settings.ini")
 SECRET_KEY = config.get("taxi_service", "secret_key")
 
 BOT_TOKEN = config.get("taxi_service", "bot_token")
+ID_GENERAL_ADMIN_USER = int(config.get("taxi_service", "general_admin_id"))
 
 DEBUG = config["taxi_service"].get("debug", False)
 

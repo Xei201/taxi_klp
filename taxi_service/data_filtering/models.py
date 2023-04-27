@@ -75,3 +75,17 @@ class SessionTaxi(models.Model):
     def __str__(self):
         return self.starting_point
 
+
+class SessionImportBD(models.Model):
+    """Сессии системы ежедневной выгрузки данных в Google Sheets"""
+
+    date_session = models.DateTimeField(
+        auto_now_add=True,
+    )
+    amount_record = models.IntegerField()
+
+    class Meta:
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.pk

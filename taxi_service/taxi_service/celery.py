@@ -22,12 +22,15 @@ app.conf.update(timezone='UTC')
 
 app.autodiscover_tasks()
 
-# telegram_id = int(Profile.objects.get(id=1).telegram_id)
-telegram_id = 494042950
 app.conf.beat_schedule = {
     'send-tg-mail-every-day': {
         'task': 'data_filtering.tasks.constant_message_task',
-        'schedule': crontab(minute='*/2'),
-        'args': (telegram_id,)
+        'schedule': crontab(minute='*/2')
+    },
+    'upload_taxi_session_in_bd': {
+        'task': 'data_filtering.tasks.beat_upload_bd',
+        'schedule': crontab(minute='*/3')
     }
 }
+
+# 'schedule': crontab(minute=0, hour='*/24')
