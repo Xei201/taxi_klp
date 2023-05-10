@@ -1,0 +1,21 @@
+{% extends "baza.html" %}
+{% load static %}
+
+
+{% block content %}
+    <H1> Test Graf</H1>
+        <div>
+            <h2>Money in this month</h2>
+            <img src="data:image/png;base64,{{ image }}"/>
+        </div>
+        <div>
+            <h2>Money in last month</h2>
+            <img src="data:image/png;base64,{{ image2 }}"/>
+        </div>
+        <div>
+            <h2>Money all time</h2>
+            <img src="data:image/png;base64,{{ image3 }}"/>
+        </div>
+    <H1> End Test Graf</H1>
+<div></div>
+{% endblock %}

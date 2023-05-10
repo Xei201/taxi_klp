@@ -1,7 +1,9 @@
+import base64
 import logging
 from functools import wraps
 
 from django.db.models import Sum
+from django.views.generic import TemplateView
 from telebot import TeleBot, types
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,7 +11,7 @@ from rest_framework.views import APIView
 from .core import ConverterData, BotConnect, ConnectGoogleSheet
 from .models import SessionTaxi, Profile, Sheet, SessionImportBD
 from .tasks import send_test_telegram_message_task, send_long_message_task
-
+from .graph import GG_Money_Per_Month, GG_Date2Price_AllTime
 from taxi_service import settings
 
 
@@ -257,3 +259,27 @@ def long_m(message: types.Message):
         bot.send_message(message.chat.id, f"Всего итемов {test_list['avg_data']}")
     except Exception as ex:
         bot.send_message(message.chat.id, f"Ошибка {ex}")
+
+
+class GraficView(TemplateView):
+    template_name = 'graf.html'
+
+    def get_context_data(self, **kwargs):
+        context = {}
+
+        test_graph = GG_Money_Per_Month(1)
+        pic_hash = test_graph.get_graph_to_base64()
+
+        context['image'] = pic_hash
+
+        test_graph = GG_Money_Per_Month(12)
+        pic_hash = test_graph.get_graph_to_base64()
+
+        context['image2'] = pic_hash
+
+        graph_all_time = GG_Date2Price_AllTime()
+        result_graph_all_time = graph_all_time.get_graph_to_base64()
+
+        context["image3"] = result_graph_all_time
+        return context
+
